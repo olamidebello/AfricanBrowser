@@ -72,8 +72,10 @@ bounded inference request until it finishes.
 ## Validation status and remaining work
 
 Service routing, origin checks, request validation, UI JavaScript, logo generation
-and Ansible syntax are tested separately. Live inference and deployment still
-require the model runtime and a target host. The full Chromium APK is not yet
+and Ansible syntax pass their checks. The real Ansible AI deployment and Qwen2.5
+inference passed on an Ubuntu 24.04 GitHub worker:
+https://github.com/olamidebello/AfricanBrowser/actions/runs/38374060670
+End users still need the model runtime on their own host. The full Chromium APK is not yet
 compiled. Embedding model weights and an inference runtime inside Android/iOS,
 native support UI integration, packaged desktop extension installation, and
 native release signing remain work; this is not full embedded AI on every platform.

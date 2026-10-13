@@ -1,5 +1,33 @@
 # Acceptance before calling a release operational
 
+## Automated Android download publication
+
+`production-android.yml` follows a successful hosted Chromium APK build. Configure
+a dedicated Linux release runner with labels `africanbrowser-release` and
+`android-device`, Android SDK tools (`adb`, `aapt`, `zipalign`, `apksigner`) on PATH,
+GitHub CLI, Python 3.11+, and a clean, authorized ARM64 Android test device using
+English onboarding. Set repository variables `ADB_SERIAL` and
+`ANDROID_SIGNING_CERT_SHA256` (the public certificate fingerprint).
+
+Store the private release keystore as repository secret `ANDROID_KEYSTORE_BASE64`,
+its password as `ANDROID_KEYSTORE_PASSWORD`, and alias as `ANDROID_KEY_ALIAS`.
+If the key password differs, set `ANDROID_KEY_PASSWORD`. Never commit the private
+keystore or paste its password into a public issue. Configuration is done in
+GitHub repository Settings → Secrets and variables → Actions.
+
+The pipeline aligns and signs the APK, verifies its certificate, refuses to use
+a device with an existing AfricanBrowser installation, installs the test APK,
+checks that an HTTPS page appears through the real browser, records a screenshot
+and test report, removes its own test installation, and publishes an APK asset
+only after success. It does not make a source archive or failed build downloadable
+as a production browser. The smoke test is narrower than the release acceptance
+checks below; expand native validation for all supported browser functions.
+
+The repository's latest-release APK endpoint becomes usable only after successful
+publication. No production asset currently exists; do not present the endpoint
+as a ready download before the release job succeeds. No private signing identity
+or release device has been supplied in this session.
+
 Build logs and successful compilation alone do not establish working behavior.
 Record device/OS versions, upstream revision, test results, and artifact hashes.
 

@@ -1,0 +1,65 @@
+name: Sign, test and publish Android production download
+on:
+  workflow_run:
+    workflows: ['Chromium Android APK']
+    types: [completed]
+    branches: [main]
+permissions:
+  actions: read
+  contents: write
+jobs:
+  release:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    # A dedicated ARM64 Android test device, SDK build tools and private signing
+    # secrets must be configured. No end-user device or profile is reused.
+    runs-on: [self-hosted, africanbrowser-release, android-device]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/download-artifact@v4
+        with:
+          name: AfricanBrowser-Android-ARM64-development
+          path: compiled/
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+      - name: Sign and validate on the dedicated Android device
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_SIGNING_CERT_SHA256: ${{ vars.ANDROID_SIGNING_CERT_SHA256 }}
+          ADB_SERIAL: ${{ vars.ADB_SERIAL }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+          apks = list(Path('compiled').rglob('AfricanBrowser.apk'))
+          if len(apks) != 1:
+              raise SystemExit('Expected exactly one compiled AfricanBrowser APK')
+          subprocess.run(['python3', 'scripts/release_android.py', '--apk', str(apks[0]),
+                          '--output', 'release/AfricanBrowser.apk'], check=True)
+          PY
+      - name: Publish the verified APK and stable latest-download asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BUILD_RUN_ID: ${{ github.event.workflow_run.id }}
+          BUILD_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os, pathlib
+          pathlib.Path('release/notes.md').write_text(
+              'AfricanBrowser Android ARM64 browser.\n\n'
+              'Validated private release certificate, APK alignment, native installation '
+              'and HTTPS navigation on a dedicated test device.\n\n'
+              'Build source: ' + os.environ['BUILD_SHA'] + '\n\n'
+              'The local AI assistant is a separate desktop/local deployment; model weights '
+              'and an Android inference runtime are not included in this APK. '
+              'Google proprietary services and exact Chrome feature parity are not promised.\n')
+          PY
+          gh release create "android-build-${BUILD_RUN_ID}" release/AfricanBrowser.apk release/SHA256SUMS release/device-smoke-test.json release/android-smoke-test.png --target "$BUILD_SHA" --title "AfricanBrowser Android ARM64" --notes-file release/notes.md --latest
