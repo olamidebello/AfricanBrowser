@@ -1,0 +1,43 @@
+name: Local AI deployment smoke test
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/ai-smoke.yml']
+permissions:
+  contents: read
+jobs:
+  inference:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install automation controller
+        run: python -m pip install 'ansible-core>=2.18,<2.19'
+      - name: Deploy the real local runtime and model
+        run: |
+          printf '[africanbrowser]\nlocalhost ansible_connection=local\n' > /tmp/africanbrowser-inventory.ini
+          ansible-playbook -i /tmp/africanbrowser-inventory.ini ansible/site.yml --tags ai -e 'ansible_python_interpreter=/usr/bin/python3'
+      - name: Generate a real support answer
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, pathlib, urllib.request
+          request = urllib.request.Request('http://127.0.0.1:8765/api/chat',
+              json.dumps({'messages':[{'role':'user','content':'Explain briefly how to manage browser site permissions.'}]}).encode(),
+              {'Content-Type':'application/json'})
+          with urllib.request.urlopen(request, timeout=130) as response:
+              data = json.load(response)
+          assert data.get('local') is True and data.get('model') == 'qwen2.5:1.5b'
+          assert isinstance(data.get('reply'), str) and data['reply'].strip()
+          pathlib.Path('ai-live-result.json').write_text(json.dumps(data, indent=2))
+          print('Live local model generated a nonempty browser support answer.')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AfricanBrowser-local-AI-smoke-result
+          path: ai-live-result.json
+          if-no-files-found: error
