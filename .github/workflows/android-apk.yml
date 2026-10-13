@@ -27,7 +27,7 @@ jobs:
       - name: Install logo tools
         run: python -m pip install -r requirements-build.txt
       - name: Check available space before fetching Chromium
-        run: python scripts/browser.py doctor --target android
+        run: python scripts/browser.py doctor --target android --cpu arm64
       - name: Fetch the pinned Chromium source
         run: python scripts/browser.py checkout --target android --cpu arm64
       - name: Install Chromium Android build dependencies

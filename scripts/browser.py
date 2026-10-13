@@ -40,7 +40,7 @@ def gn_args(target, cpu):
     return "\n".join(args) + "\n"
 
 
-def doctor(target, work):
+def doctor(target, work, minimum_free=100):
     problems = []
     expected = PLATFORMS[target][0]
     if platform.system() != expected:
@@ -50,8 +50,8 @@ def doctor(target, work):
         existing = existing.parent
     free = shutil.disk_usage(existing).free / 1024**3
     print(f"Free disk: {free:.1f} GiB; provision at least 200 GiB for a build worker.")
-    if free < 120:
-        problems.append("Need at least 120 GiB free before downloading source (200+ GiB recommended)")
+    if free < minimum_free:
+        problems.append(f"Need at least {minimum_free} GiB free for this stage (200+ GiB recommended for a fresh worker)")
     if shutil.which("git") is None:
         problems.append("Git is not installed")
     if target in ("macos", "ios") and not shutil.which("xcodebuild"):
@@ -112,7 +112,7 @@ def checkout(args):
 
 def build(args):
     from logo_assets import apply as apply_logo, ICON_ROOTS
-    if not doctor(args.target, args.work):
+    if not doctor(args.target, args.work, minimum_free=40):
         raise RuntimeError("Build worker prerequisites are not met")
     source = args.work / args.target / "src"
     actual = run(["git", "rev-parse", "HEAD"], source, capture=True).stdout.strip()

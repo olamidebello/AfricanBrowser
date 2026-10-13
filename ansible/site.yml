@@ -127,6 +127,9 @@
     - name: Compile the full browser
       tags: [build]
       block:
+        - name: Restrict worker build targets to Linux and Android
+          ansible.builtin.assert:
+            that: africanbrowser_target in ['linux', 'android']
         - name: Check source download and compilation prerequisites
           ansible.builtin.command:
             argv: ['{{ africanbrowser_root }}/venv/bin/python', '{{ africanbrowser_root }}/repo/scripts/browser.py', doctor, --target, '{{ africanbrowser_target }}', --work, '{{ africanbrowser_root }}/work']
@@ -147,6 +150,21 @@
           ansible.builtin.command:
             argv: ['{{ africanbrowser_root }}/venv/bin/python', '{{ africanbrowser_root }}/repo/scripts/browser.py', package, --target, '{{ africanbrowser_target }}', --cpu, '{{ africanbrowser_cpu }}', --work, '{{ africanbrowser_root }}/work']
           become_user: africanbrowser
+        - name: Install desktop launcher with the local support side panel
+          ansible.builtin.copy:
+            dest: /usr/share/applications/africanbrowser.desktop
+            mode: '0644'
+            content: |
+              [Desktop Entry]
+              Type=Application
+              Name=AfricanBrowser
+              Comment=… browse the black ways
+              Exec={{ africanbrowser_root }}/work/linux/src/out/AfricanBrowser/chrome --load-extension={{ africanbrowser_root }}/repo/extensions/africanbrowser-support %U
+              Icon={{ africanbrowser_root }}/repo/assets/branding/africanbrowser-icon.png
+              Terminal=false
+              Categories=Network;WebBrowser;
+              MimeType=text/html;x-scheme-handler/http;x-scheme-handler/https;
+          when: africanbrowser_target == 'linux'
   handlers:
     - name: Restart model service
       ansible.builtin.systemd_service:

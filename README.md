@@ -52,7 +52,7 @@ implements every exact Chrome feature. See [feature scope](docs/FEATURES.md).
 
 Use a dedicated native build machine with at least 200 GiB of free SSD storage,
 32 GiB RAM recommended, Git, Python 3.11+, and the native SDKs required by the
-pinned upstream documentation. The preflight enforces 120 GiB free as a lower
+pinned upstream documentation. The preflight enforces 100 GiB free as a lower
 bound, not a promise that the complete build will fit. Android builds on Linux;
 Apple builds on macOS; Windows builds on Windows. Install Linux dependencies
 after checkout using the pinned upstream instructions; the script does not

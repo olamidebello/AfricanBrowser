@@ -50,6 +50,9 @@ Chromium side panel, go to `chrome://extensions`, enable Developer mode, choose
 Load unpacked and select `extensions/africanbrowser-support` from this repository.
 Click its toolbar button to open the assistant. This is an explicit desktop
 extension integration, not an Android/iOS extension or packaged native assistant.
+For a Linux desktop build through Ansible, the installed desktop launcher loads
+this extension automatically. Install the `ai` service on the same desktop to
+enable local answers.
 
 For manual setup, install Ollama using its official instructions and run:
 
