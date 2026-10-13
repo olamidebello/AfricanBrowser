@@ -1,5 +1,7 @@
 # AfricanBrowser
 
+![AfricanBrowser — … browse the black ways](assets/branding/africanbrowser-logo.png)
+
 An open source Chromium browser distribution project for Android, Windows,
 macOS, Linux, and iOS/iPadOS. It builds the upstream browser, not a WebView or
 Electron wrapper. Local code is BSD-3-Clause; upstream Chromium and its bundled
@@ -24,7 +26,11 @@ names and English product strings, retaining upstream identifiers and legal
 attribution. Android uses `org.africanbrowser.browser`; iOS uses the
 `org.africanbrowser` bundle prefix; Linux's default profile is
 `~/.config/africanbrowser`; macOS uses `org.africanbrowser.AfricanBrowser`.
-Complete icon replacement, localized branding, Windows installer/profile
+The supplied Pan-African logo is preserved in `assets/branding/`. Builds apply
+its emblem to product PNGs, Windows ICO, macOS ICNS and Apple icon catalogs,
+and Android launcher resources. The original lockup retains the name and slogan
+“… browse the black ways.” Modern Apple asset compilation and platform icon
+caches still need native build validation. Localized branding, Windows installer/profile
 identity isolation, and platform branding review remain release work.
 
 ## Browser features
@@ -53,6 +59,7 @@ after checkout using the pinned upstream instructions; the script does not
 silently install packages as root.
 
 ```sh
+python3 -m pip install -r requirements-build.txt
 python3 scripts/browser.py plan --target android --cpu arm64
 python3 scripts/browser.py doctor --target android
 python3 scripts/browser.py checkout --target android --cpu arm64 --work /large-disk/africanbrowser
@@ -78,6 +85,11 @@ checksums. Packaging fails if required build outputs are absent. Output remains
 development software until [release acceptance](docs/RELEASE.md) is completed.
 
 ## Continuous integration
+
+The hosted Android workflow attempts an ARM64 Chromium APK build after checking
+runner storage. It uploads a development APK only on successful compilation.
+See [local AI and Ansible automation](docs/AI_AND_AUTOMATION.md) for the local
+support assistant, desktop side panel and Linux provisioning commands.
 
 Hosted CI checks the Python tooling. The manually dispatched native build
 workflow needs separately provisioned self-hosted workers labeled

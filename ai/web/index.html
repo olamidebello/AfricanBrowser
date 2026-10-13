@@ -1,0 +1,7 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>AfricanBrowser Support</title><link rel="stylesheet" href="style.css"></head>
+<body><main><header><p class="eyebrow">AFRICANBROWSER</p><h1>Your local support assistant</h1><p>Browser help, troubleshooting, summaries, and translation.</p><p id="status" role="status">Checking local model…</p></header>
+<section class="quick" aria-label="Suggested questions"><button data-prompt="How do I manage site permissions safely?">Site permissions</button><button data-prompt="Help me troubleshoot a download that fails.">Download help</button><button data-prompt="Explain what private browsing does and does not protect.">Private browsing</button></section>
+<section id="chat" aria-live="polite" aria-label="Conversation"></section>
+<form id="form"><label for="prompt">Ask for help or paste text to summarize or translate</label><textarea id="prompt" maxlength="8000" rows="4" required placeholder="How can I help?"></textarea><div class="actions"><button id="send" type="submit">Ask assistant</button><button id="stop" type="button" disabled>Stop waiting</button><button id="clear" type="button">Clear chat</button></div></form>
+<footer>Runs on your computer. No paid AI API. Chats stay in this page’s memory and disappear on reload. The assistant sees only what you type or paste. Answers may be inaccurate; it cannot change your settings.</footer></main><script src="app.js"></script></body></html>

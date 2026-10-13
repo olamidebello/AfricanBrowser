@@ -1,0 +1,20 @@
+[Unit]
+Description=AfricanBrowser local AI support
+After=africanbrowser-ollama.service
+Wants=africanbrowser-ollama.service
+
+[Service]
+User=africanbrowser
+Group=africanbrowser
+ExecStart={{ africanbrowser_root }}/venv/bin/python {{ africanbrowser_root }}/repo/ai/server.py
+Environment="AFRICANBROWSER_AI_MODEL={{ africanbrowser_model }}"
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/africanbrowser
+
+[Install]
+WantedBy=multi-user.target

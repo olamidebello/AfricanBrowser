@@ -1,0 +1,24 @@
+[Unit]
+Description=AfricanBrowser private local model runtime
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=africanbrowser
+Group=africanbrowser
+ExecStart={{ africanbrowser_root }}/ollama/{{ ollama_version }}/bin/ollama serve
+Environment="OLLAMA_HOST=127.0.0.1:11435"
+Environment="OLLAMA_MODELS=/var/lib/africanbrowser/models"
+Environment="OLLAMA_NUM_PARALLEL=1"
+Environment="OLLAMA_MAX_LOADED_MODELS=1"
+Environment="OLLAMA_NO_CLOUD=1"
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/africanbrowser
+
+[Install]
+WantedBy=multi-user.target

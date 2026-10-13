@@ -1,0 +1,44 @@
+name: Chromium Android APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/android-apk.yml']
+permissions:
+  contents: read
+concurrency:
+  group: chromium-android-apk
+  cancel-in-progress: false
+jobs:
+  compile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Reclaim unused SDK storage on this disposable hosted runner
+        shell: bash
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /usr/local/share/boost
+          df -h "$GITHUB_WORKSPACE"
+          free -h
+      - name: Install logo tools
+        run: python -m pip install -r requirements-build.txt
+      - name: Check available space before fetching Chromium
+        run: python scripts/browser.py doctor --target android
+      - name: Fetch the pinned Chromium source
+        run: python scripts/browser.py checkout --target android --cpu arm64
+      - name: Install Chromium Android build dependencies
+        run: sudo work/android/src/build/install-build-deps.sh --android --no-prompt
+      - name: Build ARM64 APK
+        run: python scripts/browser.py build --target android --cpu arm64
+      - name: Package compiled development APK
+        run: python scripts/browser.py package --target android --cpu arm64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AfricanBrowser-Android-ARM64-development
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30

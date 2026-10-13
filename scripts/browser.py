@@ -111,6 +111,7 @@ def checkout(args):
 
 
 def build(args):
+    from logo_assets import apply as apply_logo, ICON_ROOTS
     if not doctor(args.target, args.work):
         raise RuntimeError("Build worker prerequisites are not met")
     source = args.work / args.target / "src"
@@ -120,9 +121,12 @@ def build(args):
     allowed = {"chrome/app/theme/chromium/BRANDING", *STRING_FILES, *LITERAL_CHANGES}
     changed = run(["git", "diff", "--name-only", "HEAD"], source, capture=True).stdout.splitlines()
     untracked = run(["git", "ls-files", "--others", "--exclude-standard"], source, capture=True).stdout.splitlines()
-    if set(changed) - allowed or untracked:
+    unexpected = [name for name in changed if name not in allowed and
+                  not any(name.startswith(folder + '/') for folder in ICON_ROOTS)]
+    if unexpected or untracked:
         raise RuntimeError("Unreviewed source changes found; use a clean checkout")
     print("Branding:", apply(source))
+    print("Logo resources:", apply_logo(source))
     env = tools_env(args.work)
     run([tool(args.work, "gclient"), "runhooks"], source.parent, env)
     output = source / "out" / "AfricanBrowser"

@@ -5,3 +5,4 @@ dist/
 *.keystore
 *.p12
 *.mobileprovision
+ansible/inventory.ini

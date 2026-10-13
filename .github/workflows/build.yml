@@ -20,6 +20,8 @@ jobs:
     timeout-minutes: 1440
     steps:
       - uses: actions/checkout@v4
+      - name: Install asset tools
+        run: python3 -m pip install -r requirements-build.txt
       - name: Check worker
         run: python3 scripts/browser.py doctor --target ${{ inputs.target }}
       - name: Fetch pinned source

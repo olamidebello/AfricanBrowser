@@ -1,0 +1,160 @@
+---
+- name: Provision AfricanBrowser build and local AI services
+  hosts: africanbrowser
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Require a supported Linux worker
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.os_family == 'Debian'
+          - ansible_facts.architecture == 'x86_64'
+        fail_msg: This playbook currently provisions Debian/Ubuntu x86_64 hosts.
+      tags: [always]
+    - name: Install base tools
+      ansible.builtin.apt:
+        name: [git, python3, python3-venv, python3-pip, ca-certificates, zstd, tar, xz-utils]
+        state: present
+        update_cache: true
+      tags: [always]
+    - name: Create dedicated service account
+      ansible.builtin.user:
+        name: africanbrowser
+        system: true
+        home: /var/lib/africanbrowser
+        create_home: true
+        shell: /usr/sbin/nologin
+      tags: [always]
+    - name: Create application directories
+      ansible.builtin.file:
+        path: '{{ item }}'
+        state: directory
+        owner: africanbrowser
+        group: africanbrowser
+        mode: '0755'
+      loop:
+        - '{{ africanbrowser_root }}'
+        - '{{ africanbrowser_root }}/work'
+        - '{{ africanbrowser_root }}/downloads'
+        - /var/lib/africanbrowser/models
+      tags: [always]
+    - name: Fetch project without discarding local edits
+      ansible.builtin.git:
+        repo: '{{ africanbrowser_repo }}'
+        dest: '{{ africanbrowser_root }}/repo'
+        version: '{{ africanbrowser_ref }}'
+        force: false
+      become_user: africanbrowser
+      tags: [always]
+    - name: Install logo build dependencies in isolated environment
+      ansible.builtin.pip:
+        requirements: '{{ africanbrowser_root }}/repo/requirements-build.txt'
+        virtualenv: '{{ africanbrowser_root }}/venv'
+        virtualenv_command: python3 -m venv
+      become_user: africanbrowser
+      tags: [always]
+    - name: Provision private local model runtime
+      tags: [ai]
+      block:
+        - name: Download pinned Ollama archive and validate SHA-256
+          ansible.builtin.get_url:
+            url: 'https://github.com/ollama/ollama/releases/download/v{{ ollama_version }}/ollama-linux-amd64.tar.zst'
+            dest: '{{ africanbrowser_root }}/downloads/ollama-{{ ollama_version }}.tar.zst'
+            checksum: 'sha256:{{ ollama_sha256 }}'
+            mode: '0644'
+        - name: Create versioned runtime directory
+          ansible.builtin.file:
+            path: '{{ africanbrowser_root }}/ollama/{{ ollama_version }}'
+            state: directory
+            mode: '0755'
+        - name: Extract verified runtime
+          ansible.builtin.unarchive:
+            src: '{{ africanbrowser_root }}/downloads/ollama-{{ ollama_version }}.tar.zst'
+            dest: '{{ africanbrowser_root }}/ollama/{{ ollama_version }}'
+            remote_src: true
+            extra_opts: ['--zstd']
+            creates: '{{ africanbrowser_root }}/ollama/{{ ollama_version }}/bin/ollama'
+        - name: Install model service definition
+          ansible.builtin.template:
+            src: ollama.service.j2
+            dest: /etc/systemd/system/africanbrowser-ollama.service
+            mode: '0644'
+          notify: Restart model service
+        - name: Install local support service definition
+          ansible.builtin.template:
+            src: support.service.j2
+            dest: /etc/systemd/system/africanbrowser-support.service
+            mode: '0644'
+          notify: Restart support service
+        - name: Apply service updates before checking readiness
+          ansible.builtin.meta: flush_handlers
+        - name: Enable and start local model service
+          ansible.builtin.systemd_service:
+            name: africanbrowser-ollama
+            enabled: true
+            state: started
+            daemon_reload: true
+        - name: Wait for loopback model runtime
+          ansible.builtin.uri:
+            url: http://127.0.0.1:11435/api/tags
+          register: model_health
+          retries: 30
+          delay: 2
+          until: model_health.status == 200
+        - name: Download configured model only if missing
+          ansible.builtin.command:
+            argv:
+              - '{{ africanbrowser_root }}/ollama/{{ ollama_version }}/bin/ollama'
+              - pull
+              - '{{ africanbrowser_model }}'
+          become_user: africanbrowser
+          environment:
+            OLLAMA_HOST: 127.0.0.1:11435
+          when: africanbrowser_model not in (model_health.json.models | map(attribute='name') | list)
+        - name: Enable and start support assistant
+          ansible.builtin.systemd_service:
+            name: africanbrowser-support
+            enabled: true
+            state: started
+            daemon_reload: true
+        - name: Confirm the configured model is available
+          ansible.builtin.uri:
+            url: http://127.0.0.1:8765/api/status
+          register: support_health
+          retries: 10
+          delay: 2
+          until: support_health.status == 200 and support_health.json.ready
+    - name: Compile the full browser
+      tags: [build]
+      block:
+        - name: Check source download and compilation prerequisites
+          ansible.builtin.command:
+            argv: ['{{ africanbrowser_root }}/venv/bin/python', '{{ africanbrowser_root }}/repo/scripts/browser.py', doctor, --target, '{{ africanbrowser_target }}', --work, '{{ africanbrowser_root }}/work']
+          become_user: africanbrowser
+          changed_when: false
+        - name: Check out locked Chromium source
+          ansible.builtin.command:
+            argv: ['{{ africanbrowser_root }}/venv/bin/python', '{{ africanbrowser_root }}/repo/scripts/browser.py', checkout, --target, '{{ africanbrowser_target }}', --cpu, '{{ africanbrowser_cpu }}', --work, '{{ africanbrowser_root }}/work']
+          become_user: africanbrowser
+        - name: Install native Chromium dependencies
+          ansible.builtin.command:
+            argv: '{{ [africanbrowser_root + "/work/" + africanbrowser_target + "/src/build/install-build-deps.sh", "--no-prompt"] + (["--android"] if africanbrowser_target == "android" else []) }}'
+        - name: Build the pinned browser with logo overlay
+          ansible.builtin.command:
+            argv: ['{{ africanbrowser_root }}/venv/bin/python', '{{ africanbrowser_root }}/repo/scripts/browser.py', build, --target, '{{ africanbrowser_target }}', --cpu, '{{ africanbrowser_cpu }}', --work, '{{ africanbrowser_root }}/work']
+          become_user: africanbrowser
+        - name: Collect compiled artifacts and checksums
+          ansible.builtin.command:
+            argv: ['{{ africanbrowser_root }}/venv/bin/python', '{{ africanbrowser_root }}/repo/scripts/browser.py', package, --target, '{{ africanbrowser_target }}', --cpu, '{{ africanbrowser_cpu }}', --work, '{{ africanbrowser_root }}/work']
+          become_user: africanbrowser
+  handlers:
+    - name: Restart model service
+      ansible.builtin.systemd_service:
+        name: africanbrowser-ollama
+        daemon_reload: true
+        state: restarted
+    - name: Restart support service
+      ansible.builtin.systemd_service:
+        name: africanbrowser-support
+        daemon_reload: true
+        state: restarted

@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "AfricanBrowser Local AI Support",
+  "description": "Local browser help powered by your own Ollama model, without paid API access.",
+  "version": "0.1.0",
+  "permissions": ["sidePanel"],
+  "host_permissions": ["http://127.0.0.1:8765/*"],
+  "background": {"service_worker": "background.js"},
+  "action": {"default_title": "Open AfricanBrowser support"},
+  "side_panel": {"default_path": "index.html"},
+  "icons": {"128": "icon.png"},
+  "content_security_policy": {"extension_pages": "script-src 'self'; object-src 'self'; connect-src http://127.0.0.1:8765"}
+}

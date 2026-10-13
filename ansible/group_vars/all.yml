@@ -1,0 +1,8 @@
+africanbrowser_repo: https://github.com/olamidebello/AfricanBrowser.git
+africanbrowser_ref: main
+africanbrowser_root: /opt/africanbrowser
+africanbrowser_target: android
+africanbrowser_cpu: arm64
+africanbrowser_model: qwen2.5:1.5b
+ollama_version: 0.40.3
+ollama_sha256: ce6f8b671a699bf1ebafb28d60dbbabf4f37b30b499145fa308a8ba72de021d6
