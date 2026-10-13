@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+work/
+dist/
+*.keystore
+*.p12
+*.mobileprovision

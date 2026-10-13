@@ -1,0 +1,35 @@
+name: Compile AfricanBrowser on dedicated worker
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        type: choice
+        required: true
+        options: [linux, windows, macos, android, ios]
+      cpu:
+        type: choice
+        required: true
+        options: [arm64, x64]
+permissions:
+  contents: read
+jobs:
+  browser:
+    # Dedicated, isolated workers with >=200 GiB disk and native platform SDKs.
+    # Do not run untrusted pull requests on these workers.
+    runs-on: [self-hosted, africanbrowser, '${{ inputs.target }}']
+    timeout-minutes: 1440
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check worker
+        run: python3 scripts/browser.py doctor --target ${{ inputs.target }}
+      - name: Fetch pinned source
+        run: python3 scripts/browser.py checkout --target ${{ inputs.target }} --cpu ${{ inputs.cpu }}
+      - name: Compile
+        run: python3 scripts/browser.py build --target ${{ inputs.target }} --cpu ${{ inputs.cpu }}
+      - name: Collect development artifacts
+        run: python3 scripts/browser.py package --target ${{ inputs.target }} --cpu ${{ inputs.cpu }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AfricanBrowser-${{ inputs.target }}-${{ inputs.cpu }}
+          path: dist/
+          if-no-files-found: error

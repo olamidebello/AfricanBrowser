@@ -1,0 +1,8 @@
+{
+  "version": "155.0.8059.39",
+  "chromium_revision": "3ff7ac5a9224be9156d7f8703a06e22890aafd34",
+  "depot_tools_revision": "2fd34a8813b6f34336aad40976cc4223768177f8",
+  "source_url": "https://chromium.googlesource.com/chromium/src.git",
+  "depot_tools_url": "https://chromium.googlesource.com/chromium/tools/depot_tools.git",
+  "release_source": "https://chromiumdash.appspot.com/fetch_releases?channel=Stable&platform=Linux&num=1"
+}
