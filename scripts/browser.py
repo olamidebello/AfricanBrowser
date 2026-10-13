@@ -77,6 +77,23 @@ def tool(work, name):
     return work / "depot_tools" / (name + suffix)
 
 
+def bootstrap_tools(work):
+    depot = work / 'depot_tools'
+    env = tools_env(work)
+    # Automatic repository updates stay disabled to preserve the pinned revision.
+    # Bootstrap the runtime separately; gclient can run via vpython even when the
+    # Python runtime used by gn/autoninja has not been initialized.
+    if platform.system() == 'Windows':
+        if not (depot / 'python3_bin_reldir.txt').is_file():
+            run(['cmd', '/c', depot / 'bootstrap/win_tools.bat'], depot, env)
+        python = depot / 'python3.bat'
+    else:
+        if not (depot / 'python3_bin_reldir.txt').is_file():
+            run([depot / 'ensure_bootstrap'], depot, env)
+        python = depot / 'python-bin/python3'
+    run([python, '--version'], depot, env)
+
+
 def checkout(args):
     work = args.work
     if not doctor(args.target, work):
@@ -86,6 +103,7 @@ def checkout(args):
     if not depot.exists():
         run(["git", "clone", LOCK["depot_tools_url"], depot], work)
     run(["git", "checkout", LOCK["depot_tools_revision"]], depot)
+    bootstrap_tools(work)
     tree = work / args.target
     tree.mkdir(exist_ok=True)
     source = tree / "src"
@@ -128,6 +146,7 @@ def build(args):
     print("Branding:", apply(source))
     print("Logo resources:", apply_logo(source))
     env = tools_env(args.work)
+    bootstrap_tools(args.work)
     run([tool(args.work, "gclient"), "runhooks"], source.parent, env)
     output = source / "out" / "AfricanBrowser"
     output.mkdir(parents=True, exist_ok=True)

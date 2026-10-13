@@ -8,7 +8,7 @@ permissions:
   contents: read
 concurrency:
   group: chromium-android-apk
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   compile:
     runs-on: ubuntu-24.04
