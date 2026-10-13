@@ -8,37 +8,53 @@ permissions:
   contents: read
 concurrency:
   group: chromium-android-apk
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
-  compile:
+  first:
+    uses: ./.github/workflows/android-segment.yml
+    with:
+      segment: 1
+  second:
+    needs: first
+    if: needs.first.outputs.complete != 'true'
+    uses: ./.github/workflows/android-segment.yml
+    with:
+      segment: 2
+  third:
+    needs: second
+    if: needs.second.outputs.complete != 'true'
+    uses: ./.github/workflows/android-segment.yml
+    with:
+      segment: 3
+  fourth:
+    needs: third
+    if: needs.third.outputs.complete != 'true'
+    uses: ./.github/workflows/android-segment.yml
+    with:
+      segment: 4
+  verify_apk:
+    needs: [first, second, third, fourth]
+    if: always()
     runs-on: ubuntu-24.04
-    timeout-minutes: 350
+    env:
+      COMPLETED: ${{ needs.first.outputs.complete == 'true' || needs.second.outputs.complete == 'true' || needs.third.outputs.complete == 'true' || needs.fourth.outputs.complete == 'true' }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Reclaim unused SDK storage on this disposable hosted runner
-        shell: bash
-        run: |
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /usr/local/share/boost
-          df -h "$GITHUB_WORKSPACE"
-          free -h
-      - name: Install logo tools
-        run: python -m pip install -r requirements-build.txt
-      - name: Check available space before fetching Chromium
-        run: python scripts/browser.py doctor --target android --cpu arm64
-      - name: Fetch the pinned Chromium source
-        run: python scripts/browser.py checkout --target android --cpu arm64
-      - name: Install Chromium Android build dependencies
-        run: sudo work/android/src/build/install-build-deps.sh --android --no-prompt
-      - name: Build ARM64 APK
-        run: python scripts/browser.py build --target android --cpu arm64
-      - name: Package compiled development APK
-        run: python scripts/browser.py package --target android --cpu arm64
-      - uses: actions/upload-artifact@v4
+      - name: Require an actual completed APK build
+        run: test "$COMPLETED" = true
+      - uses: actions/download-artifact@v4
         with:
           name: AfricanBrowser-Android-ARM64-development
-          path: dist/
-          if-no-files-found: error
-          retention-days: 30
+          path: verified-apk/
+      - name: Verify uploaded APK exists and contains the browser engine
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import zipfile
+          apks = list(Path('verified-apk').rglob('AfricanBrowser.apk'))
+          assert len(apks) == 1, 'No unique compiled APK was uploaded'
+          with zipfile.ZipFile(apks[0]) as apk:
+              assert 'AndroidManifest.xml' in apk.namelist()
+              assert 'classes.dex' in apk.namelist()
+              assert any(name.startswith('lib/arm64-v8a/') and name.endswith('.so') for name in apk.namelist())
+          print('Verified the uploaded ARM64 APK artifact.')
+          PY

@@ -94,6 +94,8 @@ development software until [release acceptance](docs/RELEASE.md) is completed.
 
 The hosted Android workflow attempts an ARM64 Chromium APK build after checking
 runner storage. It uploads a development APK only on successful compilation.
+Compilation now uses resumable segments to avoid losing completed objects at
+the hosted job time limit. See [resumable build details](docs/RESUMABLE_BUILD.md).
 See [local AI and Ansible automation](docs/AI_AND_AUTOMATION.md) for the local
 support assistant, desktop side panel and Linux provisioning commands.
 

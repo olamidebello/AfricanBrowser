@@ -1,0 +1,57 @@
+name: Publish downloadable development APK
+on:
+  workflow_run:
+    workflows: ['Chromium Android APK']
+    types: [completed]
+    branches: [main]
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: AfricanBrowser-Android-ARM64-development
+          path: compiled/
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+      - name: Validate and prepare the real APK for public download
+        run: |
+          python3 - <<'PY'
+          import hashlib, pathlib, shutil, zipfile
+          apks = list(pathlib.Path('compiled').rglob('AfricanBrowser.apk'))
+          assert len(apks) == 1, 'Expected one compiled APK'
+          with zipfile.ZipFile(apks[0]) as apk:
+              assert 'AndroidManifest.xml' in apk.namelist()
+              assert 'classes.dex' in apk.namelist()
+              assert any(n.startswith('lib/arm64-v8a/') and n.endswith('.so') for n in apk.namelist())
+          folder = pathlib.Path('download')
+          folder.mkdir()
+          shutil.copy2(apks[0], folder / 'AfricanBrowser.apk')
+          with (folder / 'AfricanBrowser.apk').open('rb') as stream:
+              checksum = hashlib.file_digest(stream, 'sha256').hexdigest()
+          (folder / 'SHA256SUMS').write_text(checksum + '  AfricanBrowser.apk\n')
+          for name in ('LICENSE','COPYRIGHT.md','NOTICE.md','TERMS.md','PRIVACY.md'):
+              shutil.copy2(name, folder / name)
+          shutil.copy2(apks[0].parent / 'build-info.json', folder / 'build-info.json')
+          (folder / 'release-notes.md').write_text(
+              'Compiled AfricanBrowser Android ARM64 development APK.\n\n'
+              'This is a development build using upstream development signing, not a '
+              'production-signed or device-validated release. Private release signing '
+              'and native acceptance testing remain separate.\n\n'
+              'The local AI assistant is a separate desktop/local deployment. '
+              'Mobile model weights and an Android inference runtime are not embedded in this APK.\n')
+          PY
+      - name: Publish the APK asset without calling it a production release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BUILD_ID: ${{ github.event.workflow_run.id }}
+          BUILD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: gh release create "android-development-${BUILD_ID}" download/AfricanBrowser.apk download/SHA256SUMS download/build-info.json download/LICENSE download/COPYRIGHT.md download/NOTICE.md download/TERMS.md download/PRIVACY.md --target "$BUILD_SHA" --title "AfricanBrowser Android ARM64 development APK" --notes-file download/release-notes.md --prerelease --latest=false

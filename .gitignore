@@ -6,3 +6,5 @@ dist/
 *.p12
 *.mobileprovision
 ansible/inventory.ini
+.build-checkpoint/
+build-status.json

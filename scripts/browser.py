@@ -33,7 +33,8 @@ def gn_args(target, cpu):
             "symbol_level=0", "use_remoteexec=false", "chrome_pgo_phase=0",
             f'target_cpu="{cpu}"']
     if target == "android":
-        args += ['target_os="android"', 'chrome_public_manifest_package="org.africanbrowser.browser"']
+        args += ['target_os="android"', 'chrome_public_manifest_package="org.africanbrowser.browser"',
+                 'use_siso=false']
     if target == "ios":
         args += ['target_os="ios"', 'target_environment="simulator"',
                  "ios_enable_code_signing=false", 'ios_app_bundle_id_prefix="org.africanbrowser"']
@@ -149,10 +150,31 @@ def build(args):
     bootstrap_tools(args.work)
     run([tool(args.work, "gclient"), "runhooks"], source.parent, env)
     output = source / "out" / "AfricanBrowser"
+    if args.checkpoint:
+        if args.target != 'android' or platform.system() != 'Linux' or not args.segment_seconds:
+            raise RuntimeError('Checkpoints require a bounded Android build on Linux')
+        from build_checkpoint import normalize_inputs, restore
+        identity = {'upstream': LOCK['chromium_revision'], 'target': args.target,
+                    'cpu': args.cpu, 'gn_args': gn_args(args.target, args.cpu),
+                    'project_commit': run(['git', 'rev-parse', 'HEAD'], ROOT, capture=True).stdout.strip()}
+        normalize_inputs(source)
+        restore(source, args.checkpoint, identity)
     output.mkdir(parents=True, exist_ok=True)
     (output / "args.gn").write_text(gn_args(args.target, args.cpu))
     run([tool(args.work, "gn"), "gen", "out/AfricanBrowser", "--fail-on-unused-args"], source, env)
-    run([tool(args.work, "autoninja"), "-C", "out/AfricanBrowser", PLATFORMS[args.target][2]], source, env)
+    command = [tool(args.work, "autoninja"), "-C", "out/AfricanBrowser", PLATFORMS[args.target][2]]
+    if args.jobs:
+        command += ['-j', str(args.jobs)]
+    if args.checkpoint:
+        from build_checkpoint import bounded_compile, save
+        complete = bounded_compile(command, source, env, args.segment_seconds)
+        (ROOT / 'build-status.json').write_text(json.dumps({'complete': complete, 'identity': identity}) + '\n')
+        if not complete:
+            save(source, args.checkpoint, identity)
+            print('Compilation checkpointed; another segment is required. No APK is claimed.')
+            return
+    else:
+        run(command, source, env)
     print("Compilation finished. Run package, then perform the platform smoke tests.")
 
 
@@ -224,8 +246,13 @@ def main():
     parser.add_argument("--target", choices=PLATFORMS, required=True)
     parser.add_argument("--cpu", choices=["x64", "arm64"], default="arm64" if platform.machine().lower() in ("arm64", "aarch64") else "x64")
     parser.add_argument("--work", type=Path, default=ROOT / "work")
+    parser.add_argument('--checkpoint', type=Path)
+    parser.add_argument('--segment-seconds', type=int)
+    parser.add_argument('--jobs', type=int)
     args = parser.parse_args()
     args.work = args.work.resolve()
+    if args.checkpoint:
+        args.checkpoint = args.checkpoint.resolve()
     if " " in str(args.work):
         parser.error("Chromium build paths must not contain spaces")
     if args.target == "android" and args.cpu != "arm64":
