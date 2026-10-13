@@ -39,6 +39,7 @@ class BuildTests(unittest.TestCase):
             brand = source / 'chrome/app/theme/chromium/BRANDING'
             brand.parent.mkdir(parents=True)
             brand.write_text('\n'.join(k + '=Chromium' for k in (
+                'COMPANY_FULLNAME', 'COMPANY_SHORTNAME',
                 'PRODUCT_FULLNAME', 'PRODUCT_SHORTNAME', 'PRODUCT_INSTALLER_FULLNAME',
                 'PRODUCT_INSTALLER_SHORTNAME', 'MAC_BUNDLE_ID')) + '\nCOPYRIGHT=The Chromium Authors\n')
             for name in STRING_FILES:

@@ -52,7 +52,9 @@ jobs:
         shell: bash
         run: |
           python3 - <<'PY'
-          import os, pathlib
+          import os, pathlib, shutil
+          for name in ('LICENSE', 'COPYRIGHT.md', 'NOTICE.md', 'TERMS.md', 'PRIVACY.md'):
+              shutil.copy2(name, pathlib.Path('release') / name)
           pathlib.Path('release/notes.md').write_text(
               'AfricanBrowser Android ARM64 browser.\n\n'
               'Validated private release certificate, APK alignment, native installation '
@@ -62,4 +64,4 @@ jobs:
               'and an Android inference runtime are not included in this APK. '
               'Google proprietary services and exact Chrome feature parity are not promised.\n')
           PY
-          gh release create "android-build-${BUILD_RUN_ID}" release/AfricanBrowser.apk release/SHA256SUMS release/device-smoke-test.json release/android-smoke-test.png --target "$BUILD_SHA" --title "AfricanBrowser Android ARM64" --notes-file release/notes.md --latest
+          gh release create "android-build-${BUILD_RUN_ID}" release/AfricanBrowser.apk release/SHA256SUMS release/device-smoke-test.json release/android-smoke-test.png release/LICENSE release/COPYRIGHT.md release/NOTICE.md release/TERMS.md release/PRIVACY.md --target "$BUILD_SHA" --title "AfricanBrowser Android ARM64" --notes-file release/notes.md --latest

@@ -29,6 +29,8 @@ def apply(source):
     path = source / "chrome/app/theme/chromium/BRANDING"
     text = path.read_text(encoding="utf-8")
     changes = {
+        "COMPANY_FULLNAME": "Olamide Olatayo Bello",
+        "COMPANY_SHORTNAME": "AfricanBrowser",
         "PRODUCT_FULLNAME": "AfricanBrowser",
         "PRODUCT_SHORTNAME": "AfricanBrowser",
         "PRODUCT_INSTALLER_FULLNAME": "AfricanBrowser Installer",

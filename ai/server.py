@@ -95,7 +95,10 @@ class Handler(BaseHTTPRequestHandler):
             except (OSError, ValueError):
                 return self.reply(503, {'ready': False, 'model': MODEL, 'local': True,
                                         'error': 'Start Ollama and download the configured model'})
-        files = {'/': 'index.html', '/app.js': 'app.js', '/style.css': 'style.css'}
+        files = {'/': 'index.html', '/index.html': 'index.html', '/app.js': 'app.js', '/style.css': 'style.css'}
+        for name in ('privacy', 'terms', 'copyright', 'notices', 'license', 'about'):
+            for route in ('/' + name, '/' + name + '.html', '/legal/' + name + '.html'):
+                files[route] = 'legal/' + name + '.html'
         if self.path not in files:
             return self.reply(404, {'error': 'Not found'})
         path = ROOT / 'web' / files[self.path]

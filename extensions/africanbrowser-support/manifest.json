@@ -3,6 +3,7 @@
   "name": "AfricanBrowser Local AI Support",
   "description": "Local browser help powered by your own Ollama model, without paid API access.",
   "version": "0.1.0",
+  "author": "Olamide Olatayo Bello",
   "permissions": ["sidePanel"],
   "host_permissions": ["http://127.0.0.1:8765/*"],
   "background": {"service_worker": "background.js"},

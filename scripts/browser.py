@@ -138,6 +138,7 @@ def build(args):
 
 
 def package(args):
+    from legal_assets import LEGAL_FILES
     source = args.work / args.target / "src"
     output = source / "out/AfricanBrowser"
     dest = ROOT / "dist" / f'AfricanBrowser-{LOCK["version"]}-{args.target}-{args.cpu}'
@@ -177,7 +178,13 @@ def package(args):
                 shutil.copy2(src, target)
         shutil.make_archive(str(dest / "AfricanBrowser"), "gztar", dest, "AfricanBrowser")
         shutil.rmtree(payload)
+    legal_dir = dest / 'legal'
+    legal_dir.mkdir()
+    for name in LEGAL_FILES:
+        shutil.copy2(ROOT / name, legal_dir / name)
+    shutil.copy2(source / 'LICENSE', legal_dir / 'Chromium-LICENSE')
     (dest / "build-info.json").write_text(json.dumps({
+        "product": json.loads((ROOT / 'config/product.json').read_text()),
         "upstream": LOCK, "platform": args.target, "cpu": args.cpu,
         "ios_build": "simulator only" if args.target == "ios" else None,
         "release_status": "development; signing and browser acceptance tests required",

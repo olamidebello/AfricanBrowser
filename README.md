@@ -1,5 +1,11 @@
 # AfricanBrowser
 
+Owner: **Olamide Olatayo Bello**. Copyright © 2026 for original AfricanBrowser
+work. Original code: BSD-3-Clause; upstream components retain their own licenses.
+
+[Copyright and branding](COPYRIGHT.md) · [Code license](LICENSE) ·
+[Third-party notices](NOTICE.md) · [Terms](TERMS.md) · [Privacy policy](PRIVACY.md)
+
 ![AfricanBrowser — … browse the black ways](assets/branding/africanbrowser-logo.png)
 
 An open source Chromium browser distribution project for Android, Windows,
