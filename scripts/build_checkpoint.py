@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import re
 import subprocess
 import tarfile
 
@@ -70,6 +71,50 @@ def save(source, checkpoint, identity):
     print(f'Saved completed build work: {size / 1024**3:.2f} GiB checkpoint.', flush=True)
 
 
+
+def compatible_identity(previous, current):
+    if previous == current:
+        return True
+    legacy = os.environ.get('AFRICANBROWSER_COMPATIBLE_CHECKPOINT_COMMIT', '')
+    if not re.fullmatch(r'[a-f0-9]{40}', legacy) or not isinstance(previous, dict):
+        return False
+    if previous.get('project_commit') != legacy:
+        return False
+    if {k: v for k, v in previous.items() if k != 'project_commit'} != {k: v for k, v in current.items() if k != 'project_commit'}:
+        return False
+    # Resume a named prior build only across tooling/docs changes, never browser inputs.
+    repository = Path(__file__).resolve().parents[1]
+    changed = subprocess.check_output(['git', 'diff', '--name-only', legacy, 'HEAD'], cwd=repository, text=True).splitlines()
+    return all(path == 'scripts/build_checkpoint.py' or path == 'README.md' or
+               path.startswith(('.github/', 'tests/', 'docs/')) for path in changed)
+
+
+def extract_entry(tar, entry, source):
+    source = Path(source).resolve()
+    path = Path(entry.name)
+    if path.is_absolute() or '..' in path.parts or path.parts[:2] != ('out', 'AfricanBrowser'):
+        raise RuntimeError('Checkpoint contains an unexpected path: ' + entry.name)
+    destination = source / path
+    # A link can reference a source input, but no archive entry may write through it.
+    for parent in destination.parents:
+        if parent == source:
+            break
+        if parent.is_symlink():
+            raise RuntimeError('Checkpoint entry traverses a symbolic link: ' + entry.name)
+    if entry.issym():
+        if path.parts == ('out', 'AfricanBrowser'):
+            raise RuntimeError('Checkpoint build root must be a directory')
+        target = Path(entry.linkname)
+        resolved = (destination.parent / target).resolve()
+        if target.is_absolute() or not resolved.is_relative_to(source):
+            raise RuntimeError('Checkpoint symbolic link escapes source: ' + entry.name)
+    elif not (entry.isfile() or entry.isdir()):
+        raise RuntimeError('Checkpoint special files and hard links are not allowed: ' + entry.name)
+    if destination.is_symlink():
+        destination.unlink()
+    tar.extract(entry, path=source, filter='data')
+
+
 def restore(source, checkpoint, identity):
     source, checkpoint = Path(source), Path(checkpoint)
     metadata_path = checkpoint / 'metadata.json'
@@ -78,7 +123,7 @@ def restore(source, checkpoint, identity):
         print('No prior checkpoint; starting a clean build.', flush=True)
         return False
     metadata = json.loads(metadata_path.read_text())
-    if metadata.get('schema') != 1 or metadata.get('identity') != identity:
+    if metadata.get('schema') != 1 or not compatible_identity(metadata.get('identity'), identity):
         raise RuntimeError('Checkpoint identity does not match this pinned build')
     if metadata.get('source_path') != str(source.resolve()):
         raise RuntimeError('Ninja checkpoints require the same absolute source path')
@@ -88,12 +133,7 @@ def restore(source, checkpoint, identity):
     try:
         with tarfile.open(fileobj=process.stdout, mode='r|') as tar:
             for entry in tar:
-                path = Path(entry.name)
-                if path.is_absolute() or '..' in path.parts or path.parts[:2] != ('out', 'AfricanBrowser'):
-                    raise RuntimeError('Checkpoint contains an unexpected path')
-                if not (entry.isfile() or entry.isdir()):
-                    raise RuntimeError('Checkpoint links or special files are not allowed')
-                tar.extract(entry, path=source, filter='data')
+                extract_entry(tar, entry, source)
     finally:
         process.stdout.close()
         code = process.wait()
