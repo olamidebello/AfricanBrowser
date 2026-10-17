@@ -36,7 +36,7 @@ attribution. Android uses `org.africanbrowser.browser`; iOS uses the
 `org.africanbrowser` bundle prefix; Linux's default profile is
 `~/.config/africanbrowser`; macOS uses `org.africanbrowser.AfricanBrowser`.
 The supplied Pan-African logo is preserved in `assets/branding/`. Builds apply
-its emblem to product PNGs, Windows ICO, macOS ICNS and Apple icon catalogs,
+the complete supplied artwork to product PNGs, Windows ICO, macOS ICNS and Apple icon catalogs,
 and Android launcher resources. The original lockup retains the name and slogan
 “… browse the black ways.” Modern Apple asset compilation and platform icon
 caches still need native build validation. Localized branding, Windows installer/profile

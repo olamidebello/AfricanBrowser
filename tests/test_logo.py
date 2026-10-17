@@ -6,10 +6,15 @@ import unittest
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-from logo_assets import apply, LOGO
+from logo_assets import apply, emblem, LOGO
 
 
 class LogoTests(unittest.TestCase):
+    def test_icon_uses_complete_supplied_artwork(self):
+        with Image.open(LOGO) as original:
+            self.assertEqual(emblem().size, original.size)
+            self.assertEqual(emblem().tobytes(), original.convert('RGB').tobytes())
+
     def test_overlay_preserves_dimensions_and_generates_native_formats(self):
         original = LOGO.read_bytes()
         with tempfile.TemporaryDirectory() as folder:

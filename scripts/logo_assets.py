@@ -20,10 +20,8 @@ ICON_ROOTS = (
 def emblem():
     with Image.open(LOGO) as original:
         original.load()
-        w, h = original.size
-        # Artwork-specific bounds exclude the wordmark and slogan.
-        return original.crop((round(w * .095), round(h * .04),
-                              round(w * .905), round(h * .79))).convert('RGB')
+        # Use the complete supplied artwork on every platform, including its wordmark.
+        return original.convert('RGB')
 
 
 def render(image, size, padding=0):
