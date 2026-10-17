@@ -101,6 +101,12 @@ Compiled development artifacts go to `dist/` with build metadata and SHA-256
 checksums. Packaging fails if required build outputs are absent. Output remains
 development software until [release acceptance](docs/RELEASE.md) is completed.
 
+## Rebuild and deploy APK
+
+Run `ansible-playbook -i ansible/hosting.example.ini ansible/rebuild-deploy.yml`
+to pull the latest source, rebuild through GitHub Actions, verify the APK and
+publish it on your hosting server. See [setup and recovery](docs/APK_DEPLOYMENT.md).
+
 ## Continuous integration
 
 The hosted Android workflow attempts an ARM64 Chromium APK build after checking

@@ -1,0 +1,157 @@
+---
+- name: Rebuild AfricanBrowser APK and deploy verified website download
+  hosts: africanbrowser
+  become: true
+  gather_facts: true
+  serial: 1
+  vars:
+    deploy_repo: https://github.com/olamidebello/AfricanBrowser.git
+    deploy_github_repo: olamidebello/AfricanBrowser
+    deploy_ref: main
+    deploy_checkout: /opt/africanbrowser-deploy/repo
+    website_root: /var/www/olamide-auto/africanbrowser.com/public_html
+    website_url: https://africanbrowser.com
+    # Set via Ansible Vault, or export GH_TOKEN on the controller.
+    deploy_github_token: '{{ lookup("ansible.builtin.env", "GH_TOKEN") }}'
+    deploy_timeout: 100800
+  tasks:
+    - name: Require Debian or Ubuntu and a GitHub Actions credential
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.os_family == 'Debian'
+          - deploy_github_token | length > 0
+        fail_msg: Use Debian/Ubuntu and supply GH_TOKEN with Actions write and repository read access.
+      no_log: true
+    - name: Install deployment tools without a local Chromium build toolchain
+      ansible.builtin.apt:
+        name: [git, gh, python3, ca-certificates]
+        state: present
+        update_cache: true
+    - name: Require the active website document root
+      ansible.builtin.stat:
+        path: '{{ website_root }}'
+      register: webroot
+    - name: Validate document root
+      ansible.builtin.assert:
+        that: webroot.stat.isdir | default(false)
+        fail_msg: Set website_root to the existing AfricanBrowser nginx document root.
+    - name: Create private deployment state directory
+      ansible.builtin.file:
+        path: /opt/africanbrowser-deploy
+        state: directory
+        mode: '0700'
+    - name: Acquire exclusive deployment lock
+      ansible.builtin.command:
+        argv: [mkdir, /opt/africanbrowser-deploy/deploy.lock]
+      changed_when: true
+    - name: Build, stage and publish
+      block:
+        - name: Pull current application source without discarding edits
+          ansible.builtin.git:
+            repo: '{{ deploy_repo }}'
+            dest: '{{ deploy_checkout }}'
+            version: '{{ deploy_ref }}'
+            force: false
+        - name: Create unique staging directory
+          ansible.builtin.tempfile:
+            state: directory
+            path: /opt/africanbrowser-deploy
+            prefix: staged-
+          register: staging
+        - name: Request rebuild and stage checksum verified APK and website
+          ansible.builtin.command:
+            argv:
+              - python3
+              - scripts/rebuild_apk.py
+              - --repo
+              - '{{ deploy_github_repo }}'
+              - --ref
+              - '{{ deploy_ref }}'
+              - --output
+              - '{{ staging.path }}/site'
+              - --timeout
+              - '{{ deploy_timeout | string }}'
+            chdir: '{{ deploy_checkout }}'
+          environment:
+            GH_TOKEN: '{{ deploy_github_token }}'
+            GH_PROMPT_DISABLED: '1'
+          async: '{{ deploy_timeout | int + 600 }}'
+          poll: 30
+          no_log: true
+        - name: Read verified deployment metadata
+          ansible.builtin.slurp:
+            src: '{{ staging.path }}/site/deployment.json'
+          register: metadata
+        - name: Decode deployment metadata
+          ansible.builtin.set_fact:
+            deployed: '{{ metadata.content | b64decode | from_json }}'
+        - name: Save current homepage for rollback
+          ansible.builtin.slurp:
+            src: '{{ website_root }}/index.html'
+          register: previous_index
+        - name: Publish immutable APK downloads, branding and legal files first
+          ansible.builtin.copy:
+            src: '{{ staging.path }}/site/{{ item }}/'
+            dest: '{{ website_root }}/{{ item }}/'
+            remote_src: true
+            mode: preserve
+            directory_mode: '0755'
+            backup: true
+          loop: [downloads, assets, legal]
+        - name: Verify published APK checksum on disk
+          ansible.builtin.stat:
+            path: '{{ website_root }}/{{ deployed.apk }}'
+            checksum_algorithm: sha256
+          register: published_apk
+        - name: Require correct published APK
+          ansible.builtin.assert:
+            that: published_apk.stat.checksum == deployed.sha256
+        - name: Activate and verify new homepage
+          block:
+            - name: Atomically publish homepage with backup
+              ansible.builtin.copy:
+                src: '{{ staging.path }}/site/index.html'
+                dest: '{{ website_root }}/index.html'
+                remote_src: true
+                mode: '0644'
+                backup: true
+            - name: Confirm public homepage points to this build
+              ansible.builtin.uri:
+                url: '{{ website_url }}/?build={{ deployed.run_id }}'
+                return_content: true
+              register: public_site
+              failed_when: public_site.status != 200 or deployed.apk not in public_site.content
+            - name: Confirm public APK download is accessible
+              ansible.builtin.uri:
+                url: '{{ website_url }}/{{ deployed.apk }}'
+                method: HEAD
+                follow_redirects: none
+                status_code: 200
+              register: public_apk
+              failed_when: public_apk.content_length | default(0) | int != published_apk.stat.size
+          rescue:
+            - name: Restore the previous homepage
+              ansible.builtin.copy:
+                content: '{{ previous_index.content | b64decode }}'
+                dest: '{{ website_root }}/index.html'
+                mode: '0644'
+            - name: Report failed activation
+              ansible.builtin.fail:
+                msg: Public verification failed; previous homepage was restored. Inspect nginx and CDN routing.
+        - name: Report verified download
+          ansible.builtin.debug:
+            msg:
+              - 'Download: {{ website_url }}/{{ deployed.apk }}'
+              - 'Source: {{ deployed.source }}'
+              - 'SHA-256: {{ deployed.sha256 }}'
+              - Development APK; private production signing and device testing remain separate.
+      always:
+        - name: Remove temporary staging files
+          ansible.builtin.file:
+            path: '{{ staging.path }}'
+            state: absent
+          when: staging is defined and staging.path is defined
+        - name: Release deployment lock
+          ansible.builtin.file:
+            path: /opt/africanbrowser-deploy/deploy.lock
+            state: absent
