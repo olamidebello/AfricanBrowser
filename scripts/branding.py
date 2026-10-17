@@ -7,7 +7,20 @@ STRING_FILES = (
     "chrome/app/chromium_strings.grd",
     "ios/chrome/app/strings/ios_chromium_strings.grd",
 )
+ANDROID_NAME_FILE = "chrome/android/java/res_chromium_base/values/channel_constants.xml"
+
+DEFAULT_HOMEPAGE = "https://africanbrowser.com/"
 LITERAL_CHANGES = {
+    "chrome/browser/profiles/profile_impl.cc": (
+        'registry->RegisterStringPref(prefs::kHomePage, std::string(),',
+        f'registry->RegisterStringPref(prefs::kHomePage, "{DEFAULT_HOMEPAGE}",'),
+    "chrome/browser/ui/browser_ui_prefs.cc": (
+        'registry->RegisterBooleanPref(prefs::kHomePageIsNewTabPage, true,',
+        'registry->RegisterBooleanPref(prefs::kHomePageIsNewTabPage, false,'),
+    "chrome/android/java/src/org/chromium/chrome/browser/homepage/HomepageManager.java": (
+        'return getNtpUrl(isIncognito);\n    }\n\n    /**\n     * Determines',
+        f'return isIncognito ? getNtpUrl(true) : new GURL("{DEFAULT_HOMEPAGE}");'
+        '\n    }\n\n    /**\n     * Determines'),
     "ios/build/chrome_build.gni": ('chromium_short_name = "Chromium"', 'chromium_short_name = "AfricanBrowser"'),
     "chrome/common/chrome_paths_linux.cc": ('std::string data_dir_basename = "chromium";', 'std::string data_dir_basename = "africanbrowser";'),
 }
@@ -20,6 +33,23 @@ def brand_strings(text):
         return re.sub(r">([^<]*)<", lambda m: ">" + re.sub(
             r"\bChromium\b", "AfricanBrowser", m.group(1)) + "<", match.group(0))
     result = re.sub(r"<message\b[^>]*>.*?</message>", message, text, flags=re.S)
+    ET.fromstring(result)
+    return result
+
+
+def brand_android_names(text):
+    root = ET.fromstring(text)
+    required = {"app_name", "bookmark_widget_title", "search_widget_title",
+                "quick_action_search_widget_title"}
+    for name in required:
+        nodes = root.findall(f"string[@name='{name}']")
+        if len(nodes) != 1 or not nodes[0].text or not re.search(
+                r"\b(?:Chromium|AfricanBrowser)\b", nodes[0].text):
+            raise RuntimeError(f"Upstream Android name changed: {name}")
+    # Preserve comments, copyright and XML attributes verbatim.
+    result = re.sub(r"(<string\b[^>]*>)([^<]*)(</string>)",
+                    lambda m: m[1] + re.sub(r"\bChromium\b", "AfricanBrowser", m[2]) + m[3],
+                    text)
     ET.fromstring(result)
     return result
 
@@ -43,6 +73,8 @@ def apply(source):
             raise RuntimeError(f"Upstream branding changed: {key}")
     # Validate all required inputs before writing any of them.
     outputs = {path: text}
+    android_names = source / ANDROID_NAME_FILE
+    outputs[android_names] = brand_android_names(android_names.read_text(encoding="utf-8"))
     for name in STRING_FILES:
         p = source / name
         outputs[p] = brand_strings(p.read_text(encoding="utf-8"))

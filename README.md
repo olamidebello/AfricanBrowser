@@ -42,6 +42,14 @@ and Android launcher resources. The original lockup retains the name and slogan
 caches still need native build validation. Localized branding, Windows installer/profile
 identity isolation, and platform branding review remain release work.
 
+## Default home page
+
+New builds use **https://africanbrowser.com/** as the default home page on
+Android and desktop. Users can change their homepage in Settings; existing
+custom preferences and managed policies take precedence. Android private
+browsing keeps the native new tab page. Installing a rebuilt APK is required
+to receive the Android application name and homepage changes.
+
 ## Browser features
 
 Using the full upstream browser preserves its implementation of tabs, navigation,

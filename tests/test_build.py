@@ -3,10 +3,11 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-from branding import apply, brand_strings, STRING_FILES, LITERAL_CHANGES
+from branding import ANDROID_NAME_FILE, brand_android_names, apply, brand_strings, STRING_FILES, LITERAL_CHANGES
 from browser import gn_args, PLATFORMS, LOCK
 
 
@@ -50,7 +51,17 @@ class BuildTests(unittest.TestCase):
                 p = source / name
                 p.parent.mkdir(parents=True, exist_ok=True)
                 p.write_text(old)
+            android_names = source / ANDROID_NAME_FILE
+            android_names.parent.mkdir(parents=True, exist_ok=True)
+            android_names.write_text('<resources><!-- Copyright The Chromium Authors -->' + ''.join(
+                f'<string name="{name}" translatable="false">Chromium{suffix}</string>'
+                for name, suffix in [('app_name', ''), ('bookmark_widget_title', ' bookmarks'),
+                                     ('search_widget_title', ' search'),
+                                     ('quick_action_search_widget_title', ' quick action search')]) + '</resources>')
             apply(source)
+            self.assertEqual(ET.fromstring(android_names.read_text()).find("string[@name='app_name']").text,
+                             'AfricanBrowser')
+            self.assertIn('Copyright The Chromium Authors', android_names.read_text())
             snapshots = {p: p.read_bytes() for p in source.rglob('*') if p.is_file()}
             apply(source)
             self.assertTrue(all(p.read_bytes() == value for p, value in snapshots.items()))
@@ -61,6 +72,10 @@ class BuildTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 apply(source)
             self.assertEqual(brand.read_bytes(), before)
+
+    def test_android_names_reject_incomplete_resources(self):
+        with self.assertRaises(RuntimeError):
+            brand_android_names('<resources><string name="app_name">Chromium</string></resources>')
 
     def test_platform_flags_keep_sandbox_defaults(self):
         for target in PLATFORMS:

@@ -9,7 +9,7 @@ import platform
 import shutil
 import subprocess
 import sys
-from branding import apply, STRING_FILES, LITERAL_CHANGES
+from branding import ANDROID_NAME_FILE, apply, STRING_FILES, LITERAL_CHANGES
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCK = json.loads((ROOT / "config/upstream.json").read_text())
@@ -137,7 +137,7 @@ def build(args):
     actual = run(["git", "rev-parse", "HEAD"], source, capture=True).stdout.strip()
     if actual != LOCK["chromium_revision"]:
         raise RuntimeError("Source revision does not match upstream lock")
-    allowed = {"chrome/app/theme/chromium/BRANDING", *STRING_FILES, *LITERAL_CHANGES}
+    allowed = {"chrome/app/theme/chromium/BRANDING", *STRING_FILES, *LITERAL_CHANGES, ANDROID_NAME_FILE}
     changed = run(["git", "diff", "--name-only", "HEAD"], source, capture=True).stdout.splitlines()
     untracked = run(["git", "ls-files", "--others", "--exclude-standard"], source, capture=True).stdout.splitlines()
     unexpected = [name for name in changed if name not in allowed and
