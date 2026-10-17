@@ -1,0 +1,47 @@
+---
+- name: Publish AfricanBrowser public website
+  hosts: africanbrowser
+  become: true
+  gather_facts: false
+  vars:
+    website_root: /var/www/olamide-auto/africanbrowser.com/public_html
+    website_source: '{{ playbook_dir }}/../dist/website'
+  tasks:
+    - name: Check the built site is available on the controller
+      ansible.builtin.stat:
+        path: '{{ website_source }}/index.html'
+      delegate_to: localhost
+      become: false
+      register: built_site
+    - name: Require a site build before deployment
+      ansible.builtin.assert:
+        that: built_site.stat.exists
+        fail_msg: Run python3 scripts/build_website.py before this playbook.
+    - name: Check the existing website directory
+      ansible.builtin.stat:
+        path: '{{ website_root }}'
+      register: document_root
+    - name: Require the existing document root
+      ansible.builtin.assert:
+        that: document_root.stat.isdir | default(false)
+        fail_msg: Verify website_root against the active web server configuration.
+    - name: Publish branding and legal pages first
+      ansible.builtin.copy:
+        src: '{{ website_source }}/{{ item }}/'
+        dest: '{{ website_root }}/{{ item }}/'
+        mode: '0644'
+        directory_mode: '0755'
+        backup: true
+      loop: [assets, legal]
+    - name: Atomically replace homepage and retain a backup
+      ansible.builtin.copy:
+        src: '{{ website_source }}/index.html'
+        dest: '{{ website_root }}/index.html'
+        mode: '0644'
+        backup: true
+    - name: Verify public homepage contains the download action
+      ansible.builtin.uri:
+        url: https://africanbrowser.com/
+        return_content: true
+      register: public_site
+      failed_when: public_site.status != 200 or 'Download development APK' not in public_site.content

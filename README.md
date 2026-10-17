@@ -13,9 +13,12 @@ macOS, Linux, and iOS/iPadOS. It builds the upstream browser, not a WebView or
 Electron wrapper. Local code is BSD-3-Clause; upstream Chromium and its bundled
 dependencies retain their own licenses and attribution.
 
-**Current status: source/build tooling, not a compiled or production-ready browser.**
-No APK, installer, signed Apple application, verified browser release, automatic
-update service, or Chrome feature-parity certification is provided yet.
+**Current status: an Android ARM64 development APK is available; the project is not production-ready.**
+[Download and review the development release](https://github.com/olamidebello/AfricanBrowser/releases/tag/android-development-38688333478).
+It uses development signing and has not completed device acceptance testing.
+No desktop installer, signed Apple application, production-verified browser release,
+automatic update service, or Chrome feature-parity certification is provided yet.
+See [public website build and deployment](docs/WEBSITE.md).
 
 ## Foundation
 
