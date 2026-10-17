@@ -76,8 +76,27 @@
             GH_TOKEN: '{{ deploy_github_token }}'
             GH_PROMPT_DISABLED: '1'
           async: '{{ deploy_timeout | int + 600 }}'
-          poll: 30
+          poll: 0
+          register: rebuild_launch
+          failed_when: false
           no_log: true
+        - name: Report rebuild launch errors without credentials
+          ansible.builtin.fail:
+            msg: '{{ (rebuild_launch.msg | default(rebuild_launch.stderr | default("Unable to launch remote rebuild"))) | replace(deploy_github_token, "[REDACTED]") }}'
+          when: rebuild_launch.ansible_job_id is not defined
+        - name: Wait for rebuild and download to finish
+          ansible.builtin.async_status:
+            jid: '{{ rebuild_launch.ansible_job_id }}'
+          register: rebuild_result
+          until: rebuild_result.finished | default(false) | bool
+          retries: '{{ ((deploy_timeout | int + 600) / 30) | int }}'
+          delay: 30
+          failed_when: false
+          no_log: true
+        - name: Report rebuild errors without credentials
+          ansible.builtin.fail:
+            msg: '{{ ((rebuild_result.stderr | default("")) ~ " " ~ (rebuild_result.msg | default(""))) | replace(deploy_github_token, "[REDACTED]") }}'
+          when: rebuild_result.rc | default(1) | int != 0
         - name: Read verified deployment metadata
           ansible.builtin.slurp:
             src: '{{ staging.path }}/site/deployment.json'
