@@ -10,8 +10,6 @@ on:
         value: ${{ jobs.compile.outputs.complete }}
 permissions:
   contents: read
-env:
-  AFRICANBROWSER_COMPATIBLE_CHECKPOINT_COMMIT: 3a0dff548637841f46fd3cc655a098388a8f61f4
 jobs:
   compile:
     runs-on: ubuntu-24.04
@@ -43,7 +41,6 @@ jobs:
           key: android-checkpoint-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.segment }}
           restore-keys: |
             android-checkpoint-${{ github.sha }}-
-            android-checkpoint-3a0dff548637841f46fd3cc655a098388a8f61f4-
       - name: Compile for at most 270 minutes and preserve completed outputs
         run: python scripts/browser.py build --target android --cpu arm64 --checkpoint .build-checkpoint --segment-seconds 16200 --jobs 4
       - name: Read completion status

@@ -1,6 +1,6 @@
 name: Chromium Android APK
 run-name: ${{ inputs.deploy_request || github.event.head_commit.message || 'AfricanBrowser Android build' }}
-# Resume validated engine checkpoints after build-tool repairs.
+# Build the current branding and homepage with exact-source checkpoints.
 on:
   workflow_dispatch:
     inputs:
