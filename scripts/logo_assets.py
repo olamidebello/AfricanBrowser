@@ -39,8 +39,12 @@ def apply(source):
     for folder in ICON_ROOTS[:4]:
         pngs.update((source / folder).glob('product_logo_[0-9]*.png'))
     android = source / ICON_ROOTS[4]
-    pngs.update(android.glob('mipmap-*/app_icon.png'))
-    pngs.update(android.glob('mipmap-*/layered_app_icon.png'))
+    launcher_icons = set(android.glob('mipmap-*/app_icon.png'))
+    adaptive_icons = set(android.glob('mipmap-*/layered_app_icon.png'))
+    if not launcher_icons or not adaptive_icons:
+        raise RuntimeError('Required Android launcher icons missing; refusing an unbranded build')
+    pngs.update(launcher_icons)
+    pngs.update(adaptive_icons)
     backgrounds = set(android.glob('mipmap-*/layered_app_icon_background.png'))
     mac = source / 'chrome/app/theme/chromium/mac'
     pngs.update((mac / 'Assets.xcassets').rglob('appicon_*.png'))
