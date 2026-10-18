@@ -1,7 +1,7 @@
 name: Chromium Android APK
 run-name: ${{ inputs.deploy_request || github.event.head_commit.message || 'AfricanBrowser Android build' }}
 # Build the current branding and homepage with exact-source checkpoints.
-# Rebuild requested: 2026-10-18T05:22:32Z.
+# Rebuild requested: AfricanBrowser launcher name and icon, 2026-10-18T05:24:59Z.
 on:
   workflow_dispatch:
     inputs:
