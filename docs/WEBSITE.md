@@ -12,10 +12,12 @@ python3 scripts/build_website.py
 python3 -m unittest discover -s tests -v
 ```
 
-Deploy from this checkout using an existing authorized SSH connection:
+Deploy from this checkout using an existing authorized SSH connection. The
+playbook rebuilds the site automatically before publishing, verifies public
+branding and legal pages, and repairs the legacy `/logo.png` URL:
 
 ```sh
-ansible-playbook -i ansible/inventory.example.ini ansible/website.yml
+ansible-playbook -i ansible/hosting.example.ini ansible/website.yml
 ```
 
 Set inventory host/user for the hosting server first. Confirm `website_root`
@@ -33,3 +35,14 @@ every replaced file. It publishes assets and policies before atomically replacin
 the homepage and verifies the public download action. Restore the backup index
 file created beside `index.html` to roll back the homepage. Review/update the
 pinned APK URL and release date when a newer verified release is published.
+
+To repair the website directly from an SSH terminal on the hosting server
+without rebuilding Chromium or requiring a GitHub token:
+
+```sh
+git clone https://github.com/olamidebello/AfricanBrowser.git /opt/africanbrowser-website
+cd /opt/africanbrowser-website
+# On later deployments use git pull --ff-only in this checkout instead.
+printf '[africanbrowser]\nlocalhost ansible_connection=local\n' > /tmp/africanbrowser-local.ini
+ansible-playbook -i /tmp/africanbrowser-local.ini ansible/website.yml
+```
