@@ -94,3 +94,12 @@ class BuildTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class AndroidLauncherBrandingTests(unittest.TestCase):
+    def test_launcher_name_removes_channel_suffix(self):
+        text = '<resources>' + ''.join(
+            '<string name="' + name + '">Chromium Development</string>'
+            for name in ['app_name', 'bookmark_widget_title', 'search_widget_title',
+                         'quick_action_search_widget_title']) + '</resources>'
+        self.assertIn('<string name="app_name">AfricanBrowser</string>',
+                      brand_android_names(text))
