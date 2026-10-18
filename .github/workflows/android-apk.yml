@@ -11,7 +11,7 @@ on:
         type: string
   push:
     branches: [main]
-    paths: ['.github/workflows/android-apk.yml']
+    paths: ['.github/workflows/android-apk.yml', '.github/workflows/android-segment.yml', 'scripts/branding.py', 'scripts/logo_assets.py', 'scripts/browser.py', 'assets/branding/**', 'config/**']
 permissions:
   contents: read
 concurrency:
@@ -53,6 +53,24 @@ jobs:
         with:
           name: AfricanBrowser-Android-ARM64-development
           path: verified-apk/
+      - name: Install Android resource inspector
+        run: sudo apt-get update && sudo apt-get install -y aapt
+      - name: Require AfricanBrowser installed app and launcher display names
+        run: |
+          python - <<'PYTHON'
+          from pathlib import Path
+          import re, subprocess
+          apks = list(Path('verified-apk').rglob('AfricanBrowser.apk'))
+          assert len(apks) == 1, 'Expected one compiled APK'
+          badging = subprocess.check_output(['aapt', 'dump', 'badging', str(apks[0])], text=True)
+          labels = re.findall(r"^application-label(?:-[^:]+)?:'([^']*)'", badging, re.M)
+          assert labels and all(label == 'AfricanBrowser' for label in labels), labels
+          launchers = re.findall(r"^launchable-activity:.*?label='([^']*)'.*?icon='([^']*)'", badging, re.M)
+          assert launchers, 'Missing launcher activity'
+          assert all(label in ('', 'AfricanBrowser') and icon for label, icon in launchers), launchers
+          assert "package: name='org.africanbrowser.browser'" in badging
+          print('Verified AfricanBrowser app name, launcher display name, and icon resource.')
+          PYTHON
       - name: Verify uploaded APK exists and contains the browser engine
         run: |
           python - <<'PY'
