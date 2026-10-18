@@ -6,7 +6,15 @@
   vars:
     website_root: /var/www/olamide-auto/africanbrowser.com/public_html
     website_source: '{{ playbook_dir }}/../dist/website'
+    website_url: https://africanbrowser.com
   tasks:
+    - name: Build current website on the controller
+      ansible.builtin.command:
+        argv: [python3, scripts/build_website.py]
+        chdir: '{{ playbook_dir }}/..'
+      delegate_to: localhost
+      become: false
+      changed_when: false
     - name: Check the built site is available on the controller
       ansible.builtin.stat:
         path: '{{ website_source }}/index.html'
@@ -33,6 +41,24 @@
         directory_mode: '0755'
         backup: true
       loop: [assets, legal]
+    - name: Publish legacy logo URL for cached homepages
+      ansible.builtin.copy:
+        src: '{{ website_source }}/assets/africanbrowser-logo.png'
+        dest: '{{ website_root }}/logo.png'
+        mode: '0644'
+        backup: true
+    - name: Verify public branding and legal pages before activation
+      ansible.builtin.uri:
+        url: '{{ website_url }}/{{ item }}'
+        status_code: 200
+      loop:
+        - assets/africanbrowser-icon.png
+        - assets/africanbrowser-logo.png
+        - legal/privacy.html
+        - legal/terms.html
+        - legal/license.html
+        - legal/notices.html
+        - legal/copyright.html
     - name: Atomically replace homepage and retain a backup
       ansible.builtin.copy:
         src: '{{ website_source }}/index.html'
@@ -41,7 +67,7 @@
         backup: true
     - name: Verify public homepage contains the download action
       ansible.builtin.uri:
-        url: https://africanbrowser.com/
+        url: '{{ website_url }}/'
         return_content: true
       register: public_site
       failed_when: public_site.status != 200 or 'Download development APK' not in public_site.content
