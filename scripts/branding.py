@@ -50,6 +50,9 @@ def brand_android_names(text):
     result = re.sub(r"(<string\b[^>]*>)([^<]*)(</string>)",
                     lambda m: m[1] + re.sub(r"\bChromium\b", "AfricanBrowser", m[2]) + m[3],
                     text)
+    # The launcher label must be exact even if upstream adds a channel suffix.
+    result = re.sub(r'(<string\b[^>]*\bname=[\'"]app_name[\'"][^>]*>)[^<]*(</string>)',
+                    lambda m: m[1] + 'AfricanBrowser' + m[2], result)
     ET.fromstring(result)
     return result
 
