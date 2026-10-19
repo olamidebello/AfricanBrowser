@@ -37,6 +37,31 @@ def brand_strings(text):
     return result
 
 
+def resource_files(source):
+    """Visible XML strings and translations; never source symbols or URLs."""
+    source = Path(source)
+    for folder in ('chrome', 'ios/chrome'):
+        root = source / folder
+        if root.exists():
+            for path in root.rglob('*'):
+                if path.suffix in ('.grd', '.grdp', '.xtb', '.xml') and 'out' not in path.parts:
+                    yield path
+
+
+def brand_resource(text):
+    # Preserve attribution and network identifiers even when embedded in UI strings.
+    def replace(match):
+        body = match[2]
+        if re.search(r'copyright|chromium authors|chromium contributors|license', body, re.I):
+            return match[0]
+        body = ''.join(part if part.startswith('<') else re.sub(
+            r'(?<![\w./:@-])Chromium(?![\w./:@-])', 'AfricanBrowser', part)
+            for part in re.split(r'(<[^>]+>)', body))
+        return match[1] + body + match[3]
+    return re.sub(r'(<(?:message|translation|string)\b[^>]*>)(.*?)(</(?:message|translation|string)>)',
+                  replace, text, flags=re.S)
+
+
 def brand_android_names(text):
     root = ET.fromstring(text)
     required = {"app_name", "bookmark_widget_title", "search_widget_title",
@@ -90,6 +115,14 @@ def apply(source):
             outputs[p] = value
         else:
             raise RuntimeError(f"Upstream branding anchor changed: {name}")
+    for p in resource_files(source):
+        if p in outputs:
+            continue
+        value = p.read_text(encoding='utf-8')
+        branded = brand_resource(value)
+        if branded != value:
+            ET.fromstring(branded)
+            outputs[p] = branded
     for p, value in outputs.items():
         p.write_text(value, encoding="utf-8")
     return [str(p.relative_to(source)) for p in outputs]

@@ -103,3 +103,13 @@ class AndroidLauncherBrandingTests(unittest.TestCase):
                          'quick_action_search_widget_title']) + '</resources>'
         self.assertIn('<string name="app_name">AfricanBrowser</string>',
                       brand_android_names(text))
+
+class VisibleResourceBrandingTests(unittest.TestCase):
+    def test_translations_preserve_attribution_and_urls(self):
+        from branding import brand_resource
+        text = '<translationbundle><translation id="1">Open Chromium</translation><translation id="2">The Chromium Authors</translation><translation id="3">https://Chromium.org</translation></translationbundle>'
+        result = brand_resource(text)
+        self.assertIn('Open AfricanBrowser', result)
+        self.assertIn('The Chromium Authors', result)
+        self.assertIn('https://Chromium.org', result)
+        self.assertEqual(result, brand_resource(result))

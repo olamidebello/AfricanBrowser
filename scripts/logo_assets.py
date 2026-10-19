@@ -1,5 +1,7 @@
 """Convert the supplied logo to browser icon formats; preserve original artwork."""
 import argparse
+import base64
+import xml.etree.ElementTree as ET
 import json
 from pathlib import Path
 from PIL import Image, ImageOps
@@ -37,12 +39,15 @@ def apply(source):
     image = emblem()
     pngs = set()
     for folder in ICON_ROOTS[:4]:
-        pngs.update((source / folder).glob('product_logo_[0-9]*.png'))
+        pngs.update((source / folder).rglob('product_logo*.png'))
     android = source / ICON_ROOTS[4]
     launcher_icons = set(android.glob('mipmap-*/app_icon.png'))
     adaptive_icons = set(android.glob('mipmap-*/layered_app_icon.png'))
     if not launcher_icons or not adaptive_icons:
         raise RuntimeError('Required Android launcher icons missing; refusing an unbranded build')
+    # Cover branded Android channel/splash/product images as well as launchers.
+    for pattern in ('**/product_logo*.png', '**/chromium_logo*.png', '**/chromium.png'):
+        pngs.update(android.glob(pattern))
     pngs.update(launcher_icons)
     pngs.update(adaptive_icons)
     backgrounds = set(android.glob('mipmap-*/layered_app_icon_background.png'))
@@ -50,6 +55,24 @@ def apply(source):
     pngs.update((mac / 'Assets.xcassets').rglob('appicon_*.png'))
     pngs.update((mac / 'Assets.xcassets/Icon.iconset').glob('*.png'))
     pngs.update((source / ICON_ROOTS[6]).rglob('Icon-*.png'))
+    # Keep existing SVG resource names and dimensions so build references stay valid.
+    svgs = set()
+    for folder in ICON_ROOTS[:5]:
+        for pattern in ('product_logo*.svg', 'chromium_logo*.svg', 'chromium.svg'):
+            svgs.update((source / folder).rglob(pattern))
+    svg_outputs = {}
+    encoded = base64.b64encode(LOGO.read_bytes()).decode('ascii')
+    for path in sorted(svgs):
+        root = ET.fromstring(path.read_text())
+        attrs = {key: root.attrib[key] for key in ('width', 'height', 'viewBox') if key in root.attrib}
+        if 'viewBox' not in attrs:
+            attrs['viewBox'] = '0 0 1024 1024'
+        x, y, width, height = attrs['viewBox'].split()
+        svg = ET.Element('svg', {'xmlns': 'http://www.w3.org/2000/svg', **attrs})
+        ET.SubElement(svg, 'image', {'x': x, 'y': y, 'width': width, 'height': height,
+                                  'preserveAspectRatio': 'xMidYMid meet',
+                                  'href': 'data:image/png;base64,' + encoded})
+        svg_outputs[path] = ET.tostring(svg, encoding='unicode')
     compositions = []
     for folder in (mac / 'AppIcon.icon', source / ICON_ROOTS[5] / 'AppIcon.icon'):
         config = folder / 'icon.json'
@@ -92,6 +115,9 @@ def apply(source):
     changed.extend([str(ico.relative_to(source)), str(icns.relative_to(source))])
     for p, data in compositions:
         p.write_text(json.dumps(data, indent=2) + '\n')
+        changed.append(str(p.relative_to(source)))
+    for p, text in svg_outputs.items():
+        p.write_text(text, encoding='utf-8')
         changed.append(str(p.relative_to(source)))
     return changed
 
