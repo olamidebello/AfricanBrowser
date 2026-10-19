@@ -48,6 +48,13 @@ jobs:
               'The local AI assistant is a separate desktop/local deployment. '
               'Mobile model weights and an Android inference runtime are not embedded in this APK.\n')
           PY
+      - name: Upload downloadable APK and checksums independently of Releases
+        uses: actions/upload-artifact@v4
+        with:
+          name: AfricanBrowser-APK-download
+          path: download/
+          if-no-files-found: error
+          retention-days: 30
       - name: Publish the APK asset without calling it a production release
         env:
           GH_TOKEN: ${{ github.token }}
