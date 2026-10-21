@@ -157,6 +157,13 @@
             - name: Report failed activation
               ansible.builtin.fail:
                 msg: Public verification failed; previous homepage was restored. Inspect nginx and CDN routing.
+        - name: Publish verified build metadata for the store installer
+          ansible.builtin.copy:
+            src: '{{ staging.path }}/site/deployment.json'
+            dest: '{{ website_root }}/deployment.json'
+            remote_src: true
+            mode: '0644'
+            backup: true
         - name: Report verified download
           ansible.builtin.debug:
             msg:
