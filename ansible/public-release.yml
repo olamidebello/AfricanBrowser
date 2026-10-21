@@ -1,0 +1,87 @@
+---
+- name: Deploy a published GitHub APK to Olamidepanel without server GitHub login
+  hosts: africanbrowser
+  become: true
+  vars:
+    website_root: /var/www/olamide-auto/africanbrowser.com/public_html
+    release_checkout: /opt/africanbrowser-public-release
+    store_checkout: /opt/africanbrowser-store-publisher
+  tasks:
+    - name: Require the exact requested GitHub build
+      ansible.builtin.assert:
+        that: release_run_id is defined
+        fail_msg: Pass -e release_run_id=GITHUB_BUILD_RUN_ID. The build must have a published public release.
+    - name: Install download and source tools
+      ansible.builtin.apt:
+        name: [git, python3, ca-certificates]
+        state: present
+    - name: Pull the latest public deployment source
+      ansible.builtin.git:
+        repo: https://github.com/olamidebello/AfricanBrowser.git
+        dest: '{{ release_checkout }}'
+        version: main
+        force: false
+    - name: Require the existing Olamidepanel document root
+      ansible.builtin.stat:
+        path: '{{ website_root }}/index.html'
+      register: homepage
+    - ansible.builtin.assert:
+        that: homepage.stat.isreg | default(false)
+    - name: Create private staging directory
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: africanbrowser-public-
+      register: staging
+    - name: Verify and activate the requested release
+      block:
+        - name: Download public APK and verify checksum before changing the live site
+          ansible.builtin.command:
+            argv: [python3, scripts/download_release.py, --run-id, '{{ release_run_id | string }}', --output, '{{ staging.path }}/site']
+            chdir: '{{ release_checkout }}'
+        - name: Read verified release metadata
+          ansible.builtin.slurp:
+            src: '{{ staging.path }}/site/deployment.json'
+          register: manifest
+        - ansible.builtin.set_fact:
+            release_info: '{{ manifest.content | b64decode | from_json }}'
+        - name: Publish immutable APK, artwork and legal pages
+          ansible.builtin.copy:
+            src: '{{ staging.path }}/site/{{ item }}/'
+            dest: '{{ website_root }}/{{ item }}/'
+            remote_src: true
+            mode: preserve
+            directory_mode: '0755'
+          loop: [downloads, assets, legal]
+        - name: Verify public APK before activating the download button
+          ansible.builtin.uri:
+            url: 'https://africanbrowser.com/{{ release_info.apk }}'
+            method: HEAD
+            status_code: 200
+        - name: Publish homepage and deployment manifest with backups
+          ansible.builtin.copy:
+            src: '{{ staging.path }}/site/{{ item }}'
+            dest: '{{ website_root }}/{{ item }}'
+            remote_src: true
+            mode: '0644'
+            backup: true
+          loop: [index.html, deployment.json]
+        - name: Pull African Apps Store publisher
+          ansible.builtin.git:
+            repo: https://github.com/olamidebello/africanappsstore.git
+            dest: '{{ store_checkout }}'
+            version: main
+            force: false
+        - name: Publish verified browser listing to the existing store
+          ansible.builtin.command:
+            argv: [python3, '{{ store_checkout }}/tools/install_africanbrowser.py', --website-root, '{{ website_root }}']
+        - name: Verify public store listing
+          ansible.builtin.uri:
+            url: https://africanappsstore.space/api/hosted-apps
+            return_content: true
+          register: listing
+          failed_when: listing.status != 200 or 'org.africanbrowser.browser' not in listing.content
+      always:
+        - name: Remove private staging files
+          ansible.builtin.file:
+            path: '{{ staging.path }}'
+            state: absent
