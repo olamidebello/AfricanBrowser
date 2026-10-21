@@ -11,7 +11,7 @@ through GH_TOKEN or Ansible Vault:
 ```sh
 git clone https://github.com/olamidebello/AfricanBrowser.git /opt/africanbrowser-publisher
 cd /opt/africanbrowser-publisher
-ansible-playbook -i localhost, -c local ansible/olamidepanel.yml
+ansible-playbook -i ansible/localhost.ini ansible/pull-and-deploy.yml
 ```
 
 The playbook pulls main into its build checkout, requests an exact-source
