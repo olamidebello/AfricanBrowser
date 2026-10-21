@@ -11,22 +11,38 @@
     deploy_checkout: /opt/africanbrowser-deploy/repo
     website_root: /var/www/olamide-auto/africanbrowser.com/public_html
     website_url: https://africanbrowser.com
-    # Set via Ansible Vault, or export GH_TOKEN on the controller.
+    # Optional override; an existing GitHub CLI profile is reused when empty.
     deploy_github_token: '{{ lookup("ansible.builtin.env", "GH_TOKEN") }}'
     deploy_timeout: 100800
   tasks:
-    - name: Require Debian or Ubuntu and a GitHub Actions credential
+    - name: Require Debian or Ubuntu
       ansible.builtin.assert:
         that:
           - ansible_facts.os_family == 'Debian'
-          - deploy_github_token | length > 0
-        fail_msg: Use Debian/Ubuntu and supply GH_TOKEN with Actions write and repository read access.
-      no_log: true
+        fail_msg: Use a Debian or Ubuntu hosting server.
     - name: Install deployment tools without a local Chromium build toolchain
       ansible.builtin.apt:
         name: [git, gh, python3, ca-certificates]
         state: present
         update_cache: true
+    - name: Check the existing GitHub CLI profile or supplied credential
+      ansible.builtin.command:
+        argv: [gh, auth, status, --hostname, github.com]
+      environment:
+        GH_TOKEN: '{{ deploy_github_token }}'
+      register: github_profile
+      changed_when: false
+      failed_when: false
+      no_log: true
+    - name: Require an authenticated server profile
+      ansible.builtin.assert:
+        that: github_profile.rc == 0
+        fail_msg: >-
+          No usable GitHub CLI login was found for the deployment OS user.
+          Complete gh auth login --hostname github.com --git-protocol https --web
+          once as that same user, then rerun. On a headless server, open
+          https://github.com/login/device on your phone and enter the code
+          displayed by gh. An existing browser login alone is not a server CLI login.
     - name: Require the active website document root
       ansible.builtin.stat:
         path: '{{ website_root }}'
@@ -82,7 +98,7 @@
           no_log: true
         - name: Report rebuild launch errors without credentials
           ansible.builtin.fail:
-            msg: '{{ (rebuild_launch.msg | default(rebuild_launch.stderr | default("Unable to launch remote rebuild"))) | replace(deploy_github_token, "[REDACTED]") }}'
+            msg: '{{ (rebuild_launch.msg | default(rebuild_launch.stderr | default("Unable to launch remote rebuild"))) | replace(deploy_github_token or "__NO_TOKEN_OVERRIDE__", "[REDACTED]") }}'
           when: rebuild_launch.ansible_job_id is not defined
         - name: Wait for rebuild and download to finish
           ansible.builtin.async_status:
@@ -95,7 +111,7 @@
           no_log: true
         - name: Report rebuild errors without credentials
           ansible.builtin.fail:
-            msg: '{{ ((rebuild_result.stderr | default("")) ~ " " ~ (rebuild_result.msg | default(""))) | replace(deploy_github_token, "[REDACTED]") }}'
+            msg: '{{ ((rebuild_result.stderr | default("")) ~ " " ~ (rebuild_result.msg | default(""))) | replace(deploy_github_token or "__NO_TOKEN_OVERRIDE__", "[REDACTED]") }}'
           when: rebuild_result.rc | default(1) | int != 0
         - name: Read verified deployment metadata
           ansible.builtin.slurp:
