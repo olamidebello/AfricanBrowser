@@ -1,0 +1,3 @@
+---
+# Pull latest source, build on GitHub, verify and deploy the website and store listing.
+- import_playbook: olamidepanel.yml

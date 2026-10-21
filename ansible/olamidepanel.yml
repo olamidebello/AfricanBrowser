@@ -1,0 +1,35 @@
+---
+# Run on the existing Olamidepanel host. The rebuild playbook pulls main,
+# builds the actual Chromium APK in Actions and verifies HTTPS before activation.
+- import_playbook: rebuild-deploy.yml
+
+- name: Publish the verified browser in African Apps Store
+  hosts: africanbrowser
+  become: true
+  vars:
+    store_source: /opt/africanbrowser-store-publisher
+    website_root: /var/www/olamide-auto/africanbrowser.com/public_html
+  tasks:
+    - name: Pull store publishing tools
+      ansible.builtin.git:
+        repo: https://github.com/olamidebello/africanappsstore.git
+        dest: '{{ store_source }}'
+        version: main
+        force: false
+    - name: Register the verified Chromium APK in the existing store
+      ansible.builtin.command:
+        argv:
+          - python3
+          - '{{ store_source }}/tools/install_africanbrowser.py'
+          - --website-root
+          - '{{ website_root }}'
+      changed_when: true
+    - name: Verify public store listing points to the native browser
+      ansible.builtin.uri:
+        url: https://africanappsstore.space/api/hosted-apps
+        return_content: true
+        status_code: 200
+      register: store_listing
+      failed_when: >-
+        store_listing.status != 200 or
+        'org.africanbrowser.browser' not in store_listing.content
